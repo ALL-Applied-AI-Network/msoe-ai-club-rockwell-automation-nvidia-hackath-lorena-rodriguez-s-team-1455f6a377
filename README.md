@@ -1,57 +1,176 @@
-# Rockwell Automation + NVIDIA Innovation Lab · Fall 2026
+# VialSense
 
-This is your team's repository for the four-week physical AI hackathon run by Rockwell Automation, NVIDIA, the MSOE AI Club and UWM's Connected Systems Institute. Build everything here. Sponsors can follow your work as it progresses, and your final submission links straight to this repository.
+## Overview
 
-**Full event guide** (datasets, compute, rules, judging, prizes): <https://msoe-maic.com/library/?article=Rockwell-NVIDIA-Fall-2026>
-**Your team workspace** (team, repository access, submissions): <https://dashboard.all-ai-network.org/j/L36HEH>
-**Questions:** [join the hackathon Slack](https://join.slack.com/t/rockwellnvidi-wq82211/shared_invite/zt-4bp05nsn9-UW3afFtM9wjzWtZiQoJBHg) and ask in the channel that matches your question. The event guide's "Getting help" section says who to ping for what.
+VialSense is a hackathon prototype that supports operator inspection during
+fluid filling. It measures liquid color, tracks vials, and compares reliable
+readings with provisional recipe profiles. A review alert prompts inspection;
+it does not control the line or confirm contamination.
 
-## Key dates
+## How It Works
 
-| When | What |
-|---|---|
-| Thu Oct 8, 4:00–6:00 PM | Kickoff at Rockwell Automation HQ, 1201 S 2nd St, Milwaukee |
-| **Wed Oct 14, 11:59 PM CT** | **Team plan due:** [submit it here](https://dashboard.all-ai-network.org/s/V28NHK) |
-| **Sun Nov 1, 11:59 PM CT** | **Final submission due:** [submit it here](https://dashboard.all-ai-network.org/s/V28NHK) |
-| Thu Nov 5, 5:00–8:00 PM | Finals at MSOE Diercks Hall: live presentations and prizes |
+VialSense connects four parts of the workflow:
 
-## First week
+1. **Color Analysis:** The liquid finder locates the vial
+   and liquid region and measures RGB and OpenCV HSV. The analysis organizes
+   readings by recipe, vial, timestamp, and fill progress for comparison and
+   visualization.
+2. **Anomaly Detection:** The scoring module compares a reading
+   with a provisional recipe profile for the corresponding filling stage. It
+   returns a score and status, or abstains when the reading or context is not
+   reliable enough to score.
+3. **Live Tracking:** Tracks vial arrival and liquid rise, estimates fill
+   progress, and assigns the next recipe from an operator-provided queue. The
+   recipe is not inferred from color. If the recipe sequence is unknown, it
+   can still track vials and show RGB/HSV readings without recipe assignment
+   or anomaly scores.
+4. **Operator Dashboard:** Displays the live camera, measured color, fill
+   progress, and anomaly status. Automatic mode includes a recipe-change
+   warning, the latest vial verdict and explanation, and a table of completed
+   vials. Operators can provide recipe and progress manually when needed.
 
-- [ ] Everyone on the team has an ALL AI Network account and has joined this team in the [workspace](https://dashboard.all-ai-network.org/j/L36HEH).
-- [ ] Everyone has connected GitHub and accepted the repository invitation (check your GitHub email, or open the workspace and press the check button).
-- [ ] Pick your dataset. We recommend one strong solution around a single dataset.
-- [ ] Download the data and make sure everyone who needs it can open it.
-- [ ] Read the compute guide and decide what you'll need.
-- [ ] Join Slack, open `#hackathon-announcements`, and find your dataset's channel.
-- [ ] Submit the [team plan](https://dashboard.all-ai-network.org/s/V28NHK) by Wednesday, October 14. It's a short resource request, not a graded paper, and any teammate can update it before the deadline.
+The project also supports saved-data analysis and replaying Dataset 2 Video 5.
+For implementation details, see [Color Analysis](results/corrected/README.md),
+[Anomaly Detection](results/corrected/phase2/README.md), [Live Tracking](LIVE_MODE.md),
+and [Dashboard Setup](DASHBOARD_SETUP.md).
 
-## The three datasets
+## Testing at CSI
 
-1. **[Final Vial Inspection](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Vial-Inspection):** find missing caps, crooked caps, damaged vials and unexpected empty positions after the robot fills a fixture.
-2. **[Fluid Mixing Station 3](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Fluid-Mixing):** use synchronized camera views to detect fill and color problems caused by recipes and fluid carryover.
-3. **[Grasping and Sorting](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Grasping-Sorting):** use a digital twin and multiple cameras to make a standalone FANUC arm grasp and sort objects more reliably.
+On October 30, our team visited the UWM Connected Systems Institute (CSI) and
+connected the fluid mixing station's camera to the dashboard. We observed live
+vial detection, color measurements, and anomaly scores. The session gave us a
+working end-to-end demonstration and helped identify opportunities to improve
+liquid detection and fill-progress handling. The current code has been replayed
+on a CSI recording, but has not been retested live on the physical station.
 
-## Read before your team plan
+## Results
 
-- **[Compute: Brev, DGX Spark and build.nvidia.com](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Compute).** Brev credits are spent whenever an instance is running, so stop instances you aren't using.
-- **[Collect and test your own data](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Data-Collection):** visits, extra data, digital twins, and booking a supervised test on the real equipment.
-- **[Tools and resources](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Resources):** AI coding tools, vision-language models, NVIDIA Cosmos and more. Start with a simple baseline.
+Our Dataset 2 analysis covers 30 vials across Recipes 5–14 and 1,067 labeled
+fill frames. The saved liquid-finder readings include 879 high-confidence
+color measurements.
 
-## Final submission (Sun Nov 1)
+In a Video 5 replay, the integrated tracker assigned all 30 vials in the
+supplied recipe order. For the 29 vials whose fill start was observed, the
+estimated fill-window start differed from the corrected labels by 0.84 seconds
+on average (4.06 seconds maximum); estimated ends differed by 0.72 seconds on
+average (3.03 seconds maximum). The latest replay produced 20 `PASS`, 9
+`FLAG`, and 1 `NO DATA`. The initial vial arrived with liquid already visible
+and no prior recipe, so it was recorded but not scored.
 
-- A video of about five minutes
-- A one-page project summary
-- A link to this repository
-- References and credits for data, models, code and tools
+The Dataset 2 challenge describes the first vial after a recipe change as the
+carryover case, with the second and third expected to be clean. Applying that
+expected pattern to this replay gives:
 
-## Working in this repository
+| Evaluation group | Expected | Result |
+|---|---|---|
+| First vial after a recipe change (9 vials) | Potential carryover | 8 `FLAG`, 1 `PASS` |
+| Second vial in each recipe (10 vials) | Clean | 1 `FLAG`, 9 `PASS` |
+| Third vial in each recipe (10 vials) | Reference vial used to build profiles | Not an independent evaluation |
+
+That is 17 of 19 independently evaluated vials matching the expected pattern
+(8/9 carryover cases flagged; 1/10 presumed-clean second vials flagged). The
+missed transition is Vial 13 (Recipe 9), whose color is close to Recipe 8. The
+initial Vial 1 is excluded from these counts: it has no preceding recipe and
+is now `NO DATA` because its fill start was not observed. These expected roles
+come from the challenge description, not confirmed contamination labels, so
+the counts describe prototype behavior rather than validated detection
+accuracy. The replay files are in [`results/live/video5_replay/`](results/live/video5_replay/).
+
+All 40 automated tests pass. We also replayed the supplied CSI recording
+through the detector and tracker adapter. At about five sampled frames per
+second, it produced 1,848 vial detections and 1,780 liquid detections. The
+recording has no labels, so these counts cannot establish detection accuracy
+or confirm the vial count. The replay verified color-only tracking without
+recipe context or anomaly scores. These results demonstrate the prototype's
+workflows; they do not validate contamination detection.
+
+See the [combined recipe summary](results/corrected/phase1/recipe_summary.csv),
+[anomaly scores by frame](results/corrected/phase2/frame_predictions.csv), and
+[temporal comparison](results/temporal_analysis/consolidated/README.md).
+
+## Limitations and Future Improvements
+
+Our recipe profiles are provisional and use selected Dataset 2 vials; the
+dataset has no confirmed contamination labels. Lighting, reflections, camera
+alignment, liquid visibility, or a missed vial can affect measurements or
+recipe/fill context. A new physical CSI station test, camera calibration, and
+connections to machine-provided recipe and fill signals are useful next steps.
+Detailed measurement, tracker, and scoring caveats are documented in the
+[dashboard guide](DASHBOARD_SETUP.md), [Live Tracking guide](LIVE_MODE.md), and
+[runbook](RUNBOOK.md).
+
+## Installation and Usage
+
+Use Python 3.10 or newer from the project root:
 
 ```bash
-git clone <this repository's URL from the green "Code" button>
+python -m venv .venv
+# macOS/Linux: source .venv/bin/activate
+# Windows PowerShell: .\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dashboard.txt
 ```
 
-- Commit early and push often. Mentors and judges see what's here.
-- **Don't commit large datasets or model weights.** Keep them out with `.gitignore` and note in this README where to download them.
-- Before the finals, replace this README with your project: the problem, your approach, results, how to run it, and credits.
+Run the tests and rebuild the color analysis and anomaly-scoring outputs to a
+separate review folder:
 
-**Can't push or see this repository?** Open the [team workspace](https://dashboard.all-ai-network.org/j/L36HEH) and press the GitHub check button. If it still doesn't work, ping Brett Storoe in `#hackathon-general` on Slack.
+```bash
+PYTHONPATH=src python -m pytest -q
+PYTHONPATH=src python -m vialsense.corrected_cli build --output-dir /tmp/vialsense-review
+```
+
+Start the dashboard:
+
+```bash
+python -m streamlit run app.py
+```
+
+To replay the original Video 5 through automatic tracking, provide a local
+copy of the video and the recipe queue used in that run:
+
+```bash
+PYTHONPATH=src python -m vialsense.live_cli run \
+  --video /path/to/vial_fill_video_5.mp4 \
+  --recipes "5x3,6x3,7x3,8x3,9x3,10x3,11x3,12x3,13x3,14x3" \
+  --fps 5 --no-window --output-dir /tmp/vialsense-live-review
+```
+
+The repository does not include raw videos or dataset archives. Saved
+measurements and labels are under [`inputs/color_check/`](inputs/color_check/README.md).
+The [runbook](RUNBOOK.md) contains PowerShell commands and additional workflow
+instructions.
+
+## Repository Guide
+
+| Path | Contents |
+|---|---|
+| `src/vialsense/` | Reusable color analysis, anomaly detection, detector integration, and live tracking code |
+| `app.py` | Streamlit operator dashboard |
+| `inputs/color_check/` | Saved Video 5 measurements and recipe/fill labels |
+| `results/corrected/phase1/` | RGB/HSV timelines, summaries, and plots |
+| `results/corrected/phase2/` | Provisional recipe profiles and anomaly scores |
+| `results/integration/` | Saved detector-to-scoring examples and documentation |
+| `results/temporal_analysis/` | Temporal recipe analysis and comparison |
+| `results/recipe_5`–`results/recipe_14` | Earlier exploratory manual-ROI samples |
+| `tests/` | Anomaly-scoring, integration, and live-tracking tests |
+| `RUNBOOK.md` / `RUNBOOK.pdf` | Setup, replay, dashboard, and troubleshooting steps |
+
+## References and Credits
+
+- **Challenge and dataset:** Rockwell Automation and NVIDIA Fall 2026
+  Innovation Lab, [Fluid Mixing Station 3 dataset and event guide](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Fluid-Mixing).
+  The repository contains derived measurements, labels, plots, and selected
+  annotated examples; original videos and dataset archives are not included.
+- **Project implementation:** VialSense color analysis, live tracking,
+  anomaly scoring, dashboard, and documentation were developed by the project
+  team. The anomaly scorer uses provisional statistical profiles; no external
+  pretrained model or model weights are used.
+- **Software:** [Python](https://www.python.org/), [OpenCV](https://opencv.org/),
+  [NumPy](https://numpy.org/), [pandas](https://pandas.pydata.org/),
+  [Matplotlib](https://matplotlib.org/), [Streamlit](https://streamlit.io/),
+  [streamlit-webrtc](https://github.com/whitphx/streamlit-webrtc),
+  [PyAV](https://pyav.org/), [Plotly](https://plotly.com/python/), and
+  [pytest](https://pytest.org/). Exact dependency constraints are listed in
+  `requirements.txt` and `requirements-dashboard.txt`.
+- **Development assistance:** OpenAI Codex and Claude Code were used as AI
+  coding assistants; the team reviewed and tested the submitted project.
